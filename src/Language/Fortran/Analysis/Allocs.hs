@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
-module Language.Fortran.Analysis.BalancedAllocs where
+
+module Language.Fortran.Analysis.Allocs where
 
 import Language.Fortran.AST qualified as F
 
@@ -15,6 +16,10 @@ import Data.Map qualified as Map
 import Data.Map ( Map )
 
 import Data.Foldable ( traverse_ )
+
+import Language.Fortran.Version qualified as F
+import Language.Fortran.Parser qualified as F.Parser
+import Data.ByteString qualified as B
 
 {- | Design
 
@@ -34,17 +39,6 @@ General notes:
   * ignore 'F.AllocOpt' seems only for fancy debugging
 -}
 
-{-
--- ne = non-empty list (or use an emptyable one idgaf)
-data AllocStmt ne anno = AllocStmt
-  { allocStmtType :: AllocType
-  , allocStmtNames :: 
-
-data AllocType = Alloc | Dealloc
-  = AllocStmt   (ne (Expression anno))
-  | DeallocStmt (ne (Expression
--}
-
 type Ctx = Map F.Name VarState
 
 data VarState
@@ -53,10 +47,12 @@ data VarState
 
   -- | Allocatable. Counts number of times allocated.
   | VarIsAllocatable AllocState Int
+    deriving stock Show
 
 data AllocState
   = Allocd
   | Unallocd
+    deriving stock Show
 
 data Analysis :: Effect where
     EmitErr  :: String -> Analysis m a
@@ -134,8 +130,23 @@ runAnalysis = interpret $ \_ -> \case
         putStrLn $ "error: "<>msg
         System.Exit.exitWith $ System.Exit.ExitFailure 1
 
-analyse :: Analysis :> es => [F.Block a] -> Eff es ()
-analyse = traverse_ go
+-- TODO consider scoping.
+analysePF :: Analysis :> es => F.ProgramFile a -> Eff es ()
+analysePF pf = traverse_ analysePU (F.programFileProgramUnits pf)
+
+-- TODO consider scoping.
+analysePU :: Analysis :> es => F.ProgramUnit a -> Eff es ()
+analysePU = \case
+  F.PUMain _ _ _ bs _ -> analyseBlocks bs
+  F.PUModule _ _ _ bs _ -> analyseBlocks bs
+  -- TODO consider args (dummies)
+  F.PUSubroutine _ _ _ _ _args bs _ -> analyseBlocks bs
+  -- TODO consider args (dummies)
+  F.PUFunction _ _ _ _ _ _args _ bs _ -> analyseBlocks bs
+  _ -> pure ()
+
+analyseBlocks :: Analysis :> es => [F.Block a] -> Eff es ()
+analyseBlocks = traverse_ go
   where
     go = \case
       F.BlStatement _ _ _ st -> analyseStmt st
@@ -154,6 +165,7 @@ analyseStmt = \case
     traverse_ deallocate (F.aStrip es)
   st -> analyseStmtAccess st
 
+-- TODO use uniqname oops.
 declare
     :: Analysis :> es
     => Maybe (F.AList F.Attribute a) -> F.Declarator a -> Eff es ()
@@ -184,8 +196,8 @@ makeAllocatable d =
 analyseStmtAccess :: Analysis :> es => F.Statement a -> Eff es ()
 analyseStmtAccess _ = todo "try check if an unallocated var is accessed"
 
-todo :: Analysis :> es => String -> Eff es a
-todo = emitErr
+todo :: Analysis :> es => String -> Eff es ()
+todo msg = emitWarn ("TODO: "<>msg) "doing nothing"
 
 allocate :: Analysis :> es => F.Expression a -> Eff es ()
 allocate = \case
@@ -198,3 +210,19 @@ deallocate = \case
   F.ExpValue _ _ (F.ValVariable v) ->
     deallocVar v
   _ -> emitWarn "unsupported DEALLOCATE form" "ignoring"
+
+---
+
+main :: IO ()
+main = do
+    parseFile "tmp/example.f90" >>= \case
+      Left  err -> do
+        putStrLn "error: parse failure"
+        print err
+      Right pf -> do
+        ((), st) <- runEff $ State.runStateLocal (mempty :: Ctx) $ runAnalysis $ analysePF pf
+        print st
+        pure ()
+  where
+    parse = F.Parser.byVer F.Fortran90
+    parseFile fileName = parse fileName <$> B.readFile fileName

@@ -19,7 +19,7 @@ extra-source-files:
 
 library
   exposed-modules:
-      Language.Fortran.Analysis.BalancedAllocs
+      Language.Fortran.Analysis.Allocs
   other-modules:
       Paths_fortran_src_balanced_allocs
   hs-source-dirs:
@@ -38,6 +38,7 @@ library
   ghc-options: -Wall
   build-depends:
       base >=4.16 && <4.19
+    , bytestring
     , containers
     , effectful
     , effectful-th

@@ -60,5 +60,7 @@ dependencies:
 - effectful-th
 - containers
 
+- bytestring
+
 library:
   source-dirs: src
