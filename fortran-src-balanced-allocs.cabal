@@ -1,0 +1,45 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.35.2.
+--
+-- see: https://github.com/sol/hpack
+
+name:           fortran-src-balanced-allocs
+version:        0.1.0
+synopsis:       TODO
+description:    Please see README.md.
+author:         Ben Orchard
+maintainer:     Ben Orchard <thefirstmuffinman@gmail.com>
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+library
+  exposed-modules:
+      Language.Fortran.Analysis.BalancedAllocs
+  other-modules:
+      Paths_fortran_src_balanced_allocs
+  hs-source-dirs:
+      src
+  default-extensions:
+      LambdaCase
+      NoStarIsType
+      DerivingVia
+      DeriveAnyClass
+      GADTs
+      RoleAnnotations
+      DefaultSignatures
+      TypeFamilies
+      DataKinds
+      MagicHash
+  ghc-options: -Wall
+  build-depends:
+      base >=4.16 && <4.19
+    , containers
+    , effectful
+    , effectful-th
+    , fortran-src >=0.14 && <0.16
+  default-language: GHC2021
